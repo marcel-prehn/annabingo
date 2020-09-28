@@ -33,15 +33,12 @@ func (a *App) Start(host string) {
 	a.router = router
 
 	db, _ := buntdb.Open("./db/annabingo.db")
-	service := BingoService{
-		db:     db,
-		logger: logger,
-	}
+	service := NewBingoService(db)
 	err = service.CreateIndexOnTitle()
 	if err != nil {
-		logger.Error("could not create index on title", zap.Error(err))
+		logger.Warn("index on field title not created", zap.Error(err))
 	}
-	handler := BingoHandler{service: &service, logger: logger}
+	handler := NewBingoHandler(service, logger)
 	router.GET("/api", handler.HandleGetTestBingo)
 	router.GET("/api/view/:id", handler.HandleGetBingoById)
 	router.GET("/api/stats", handler.HandleGetStatistics)

@@ -4,17 +4,28 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 	"math/rand"
 	"strings"
 )
 
-type BingoService struct {
-	db     *buntdb.DB
-	logger *zap.Logger
+type BingoService interface {
+	GetBingoById(id string) (*Bingo, error)
+	SearchBingoByTitle(title string) (*[]Bingo, error)
+	CreateIndexOnTitle() error
+	SaveBingo(matrix Bingo) (string, error)
+	Count() (int, error)
+	Shuffle(bingo [4][4]string) *[4][4]string
 }
 
-func (s *BingoService) GetBingoById(id string) (*Bingo, error) {
+type bingoService struct {
+	db *buntdb.DB
+}
+
+func NewBingoService(db *buntdb.DB) BingoService {
+	return &bingoService{db: db}
+}
+
+func (s *bingoService) GetBingoById(id string) (*Bingo, error) {
 	var bingo Bingo
 	err := s.db.View(func(tx *buntdb.Tx) error {
 		value, err := tx.Get(id)
@@ -27,11 +38,10 @@ func (s *BingoService) GetBingoById(id string) (*Bingo, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.logger.Info("bingo found", zap.String("uuid", id))
 	return &bingo, nil
 }
 
-func (s *BingoService) SearchBingoByTitle(title string) (*[]Bingo, error) {
+func (s *bingoService) SearchBingoByTitle(title string) (*[]Bingo, error) {
 	var list []Bingo
 	err := s.db.View(func(tx *buntdb.Tx) error {
 		var b Bingo
@@ -50,11 +60,11 @@ func (s *BingoService) SearchBingoByTitle(title string) (*[]Bingo, error) {
 	return &list, nil
 }
 
-func (s *BingoService) CreateIndexOnTitle() error {
+func (s *bingoService) CreateIndexOnTitle() error {
 	return s.db.CreateIndex("title", "*", buntdb.IndexJSON("title"))
 }
 
-func (s *BingoService) SaveBingo(matrix Bingo) (string, error) {
+func (s *bingoService) SaveBingo(matrix Bingo) (string, error) {
 	id := uuid.New()
 	matrix.UUID = id.String()
 	payload, _ := json.Marshal(matrix)
@@ -66,11 +76,10 @@ func (s *BingoService) SaveBingo(matrix Bingo) (string, error) {
 		return "", err
 	}
 	_ = s.CreateIndexOnTitle()
-	s.logger.Info("saved matrix", zap.String("uuid", matrix.UUID), zap.ByteString("matrix", payload))
 	return matrix.UUID, nil
 }
 
-func (s *BingoService) Count() (int, error) {
+func (s *bingoService) Count() (int, error) {
 	var count int
 	err := s.db.View(func(tx *buntdb.Tx) error {
 		length, err := tx.Len()
@@ -83,7 +92,7 @@ func (s *BingoService) Count() (int, error) {
 	return count, nil
 }
 
-func (s *BingoService) Shuffle(bingo [4][4]string) *[4][4]string {
+func (s *bingoService) Shuffle(bingo [4][4]string) *[4][4]string {
 	for i := len(bingo) - 1; i > 0; i-- {
 		for j := len(bingo[i]) - 1; j > 0; j-- {
 			m := rand.Intn(i + 1)
