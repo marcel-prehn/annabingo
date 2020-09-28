@@ -1,0 +1,8 @@
+.idea
+db/annabingo.db
+.DS_STORE
+docker-compose.yaml
+ui/node_modules
+ui/Dockerfile
+ui/build
+.dockerignore
