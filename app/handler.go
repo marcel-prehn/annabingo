@@ -67,7 +67,7 @@ func (h *bingoHandler) HandleSearch(c *gin.Context) {
 		c.Status(500)
 	}
 	if *result == nil && len(*result) == 0 {
-		h.logger.Error("bingo not found", zap.String("query", query), zap.Error(err))
+		h.logger.Warn("bingo not found", zap.String("query", query))
 		c.Status(404)
 	}
 	c.JSON(200, result)
