@@ -29,7 +29,7 @@ export const Matrix = () => {
       <div className="text-center mt-3 mb-3">
         Aussagen werden nacheinander ausgerufen. Wenn du eine Übereinstimmung mit dir selbst erkennst, markierst du das
         Feld.
-        Hast du 3 Treffer quer, hochkant oder diagonal rufst du "Annabingo". <br/>
+        Hast du 4 Treffer quer, hochkant oder diagonal rufst du "Annabingo". <br/>
         Hast du ein Annabingo, gewinnst du das Spiel.
       </div>
     </Container>

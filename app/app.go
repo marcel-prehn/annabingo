@@ -1,36 +1,35 @@
 package app
 
 import (
-	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/static"
-	ginzap "github.com/gin-contrib/zap"
-	"github.com/gin-gonic/gin"
+	"log"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	"os"
-	"time"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 type App struct {
-	router *gin.Engine
 }
 
 func (a *App) Start(host string) {
-	annabingoEnv := os.Getenv("ANNABINGO_ENV")
+	//annabingoEnv := os.Getenv("ENV")
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalln("Error creating logger:", err.Error())
 	}
 	defer logger.Sync()
 
-	router := gin.Default()
-	router.Use(cors.Default())
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
-	router.Use(ginzap.RecoveryWithZap(logger, true))
-	router.Use(static.Serve("/", static.LocalFile("./ui/build/", false)))
-	a.router = router
+	router := echo.New()
+	router.AutoTLSManager.HostPolicy = autocert.HostWhitelist("annabingo.de", "www.annabingo.de")
+	router.AutoTLSManager.Email = "marcel.prehn@protonmail.com"
+	router.AutoTLSManager.Cache = autocert.DirCache("/var/www/.cache")
+	router.Use(middleware.CORS())
+	router.Use(middleware.Logger())
+	router.Use(middleware.Recover())
+	router.Static("/", "ui/build")
+	//router.Use(static.Serve("/", static.LocalFile("./ui/build/", false)))
 
 	db, _ := buntdb.Open("./db/annabingo.db")
 	service := NewBingoService(db)
@@ -39,29 +38,31 @@ func (a *App) Start(host string) {
 		logger.Warn("index on field title not created", zap.Error(err))
 	}
 	handler := NewBingoHandler(service, logger)
-	router.GET("/api", handler.HandleGetTestBingo)
-	router.GET("/api/view/:id", handler.HandleGetBingoById)
-	router.GET("/api/stats", handler.HandleGetStatistics)
-	router.GET("/api/search/:query", handler.HandleSearch)
-	router.GET("/api/index", handler.HandleCreateIndex)
-	router.POST("/api/create", handler.HandlePostBingo)
+	router.GET("/api", handler.GetTestBingo)
+	router.GET("/api/view/:id", handler.GetBingoById)
+	router.GET("/api/stats", handler.GetStatistics)
+	router.GET("/api/search/:query", handler.GetSearch)
+	router.POST("/api/index", handler.PostCreateIndex)
+	router.POST("/api/create", handler.PostBingo)
 
-	httpServer := http.Server{
-		Addr:    ":8000",
-		Handler: router,
-	}
+	router.StartAutoTLS(":443")
 
-	if annabingoEnv == "PROD" {
-		cert := "/etc/letsencrypt/live/www.annabingo.de/fullchain.pem"
-		key := "/etc/letsencrypt/live/www.annabingo.de/privkey.pem"
-		logger.Info("application started over https", zap.String("env", "PROD"))
-		err = httpServer.ListenAndServeTLS(cert, key)
-	} else {
-		logger.Info("application started over http", zap.String("env", "DEV"))
-		err = httpServer.ListenAndServe()
-	}
-	if err != nil {
-		logger.Error("application not started",
-		 	zap.String("env", annabingoEnv), zap.Error(err))
-	}
+	// httpServer := http.Server{
+	// 	Addr:    ":8000",
+	// 	Handler: router,
+	// }
+
+	// if annabingoEnv == "LIVE" {
+	// 	cert := "/etc/letsencrypt/live/www.annabingo.de/fullchain.pem"
+	// 	key := "/etc/letsencrypt/live/www.annabingo.de/privkey.pem"
+	// 	logger.Info("application started over https", zap.String("env", "PROD"))
+	// 	err = httpServer.ListenAndServeTLS(cert, key)
+	// } else {
+	// 	logger.Info("application started over http", zap.String("env", "DEV"))
+	// 	err = httpServer.ListenAndServe()
+	// }
+	// if err != nil {
+	// 	logger.Error("application not started",
+	// 		zap.String("env", annabingoEnv), zap.Error(err))
+	// }
 }

@@ -1,4 +1,4 @@
-FROM node:lts-buster-slim as frontend
+FROM node:17-alpine as frontend
 RUN mkdir /build
 COPY ui /build/ui
 WORKDIR /build/ui
@@ -11,7 +11,7 @@ ADD . /build/
 WORKDIR /build
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o main .
 
-FROM scratch
+FROM alpine:latest
 COPY --from=frontend /build/ui/build /app/ui/build
 COPY --from=backend /build/main /app/
 WORKDIR /app

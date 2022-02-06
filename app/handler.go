@@ -1,18 +1,20 @@
 package app
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
+	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
 type BingoHandler interface {
-	HandleGetBingo(c *gin.Context)
-	HandleGetTestBingo(c *gin.Context)
-	HandleGetBingoById(c *gin.Context)
-	HandlePostBingo(c *gin.Context)
-	HandleSearch(c *gin.Context)
-	HandleGetStatistics(c *gin.Context)
-	HandleCreateIndex(c *gin.Context)
+	GetBingo(c echo.Context) error
+	GetTestBingo(c echo.Context) error
+	GetBingoById(c echo.Context) error
+	PostBingo(c echo.Context) error
+	GetSearch(c echo.Context) error
+	GetStatistics(c echo.Context) error
+	PostCreateIndex(c echo.Context) error
 }
 
 type bingoHandler struct {
@@ -27,66 +29,68 @@ func NewBingoHandler(service BingoService, logger *zap.Logger) BingoHandler {
 	}
 }
 
-func (h *bingoHandler) HandleGetBingo(c *gin.Context) {
-	c.JSON(200, TestData())
+func (h *bingoHandler) GetBingo(c echo.Context) error {
+	return c.JSON(http.StatusOK, TestData())
 }
 
-func (h *bingoHandler) HandleGetTestBingo(c *gin.Context) {
+func (h *bingoHandler) GetTestBingo(c echo.Context) error {
 	bingo := ApiData()
 	bingo.Fields = *h.service.Shuffle(bingo.Fields)
-	c.JSON(200, bingo)
+	return c.JSON(http.StatusOK, bingo)
 }
 
-func (h *bingoHandler) HandleGetBingoById(c *gin.Context) {
+func (h *bingoHandler) GetBingoById(c echo.Context) error {
 	id := c.Param("id")
 	bingo, err := h.service.GetBingoById(id)
 	if err != nil {
 		h.logger.Error("bingo not found", zap.String("id", id), zap.Error(err))
-		c.Status(500)
+		return c.NoContent(http.StatusNotFound)
 	}
 	bingo.Fields = *h.service.Shuffle(bingo.Fields)
-	c.JSON(200, bingo)
+	return c.JSON(http.StatusOK, bingo)
 }
 
-func (h *bingoHandler) HandlePostBingo(c *gin.Context) {
+func (h *bingoHandler) PostBingo(c echo.Context) error {
 	var matrix Bingo
-	_ = c.BindJSON(&matrix)
+	err := c.Bind(&matrix)
+	if err != nil {
+		return c.NoContent(http.StatusBadRequest)
+	}
 	id, err := h.service.SaveBingo(matrix)
 	if err != nil {
 		h.logger.Error("bingo not saved", zap.String("id", id), zap.Error(err))
-		c.Status(500)
+		return c.NoContent(http.StatusInternalServerError)
 	}
-	c.String(201, id)
+	return c.String(http.StatusCreated, id)
 }
 
-func (h *bingoHandler) HandleSearch(c *gin.Context) {
+func (h *bingoHandler) GetSearch(c echo.Context) error {
 	query := c.Param("query")
 	result, err := h.service.SearchBingoByTitle(query)
 	if err != nil {
 		h.logger.Error("error during bingo search", zap.String("query", query), zap.Error(err))
-		c.Status(500)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 	if *result == nil && len(*result) == 0 {
-		h.logger.Warn("bingo not found", zap.String("query", query))
-		c.Status(404)
+		return c.NoContent(http.StatusNotFound)
 	}
-	c.JSON(200, result)
+	return c.JSON(http.StatusOK, result)
 }
 
-func (h *bingoHandler) HandleGetStatistics(c *gin.Context) {
+func (h *bingoHandler) GetStatistics(c echo.Context) error {
 	count, err := h.service.Count()
 	if err != nil {
 		h.logger.Error("stats not available", zap.Error(err))
-		c.Status(500)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 	stats := Stats{Count: count}
-	c.JSON(200, stats)
+	return c.JSON(http.StatusOK, stats)
 }
 
-func (h *bingoHandler) HandleCreateIndex(c *gin.Context) {
+func (h *bingoHandler) PostCreateIndex(c echo.Context) error {
 	err := h.service.CreateIndexOnTitle()
 	if err != nil {
-		c.Status(500)
+		return c.NoContent(http.StatusInternalServerError)
 	}
-	c.Status(200)
+	return c.NoContent(http.StatusOK)
 }
