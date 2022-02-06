@@ -2,10 +2,11 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/tidwall/buntdb"
 	"math/rand"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/tidwall/buntdb"
 )
 
 type BingoService interface {
