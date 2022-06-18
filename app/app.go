@@ -2,7 +2,9 @@ package app
 
 import (
 	"log"
+	"os"
 
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/tidwall/buntdb"
@@ -38,5 +40,11 @@ func (a *App) Start(host string) {
 	router.GET("/api/search/:query", handler.GetSearch)
 	router.POST("/api/index", handler.PostCreateIndex)
 	router.POST("/api/create", handler.PostBingo)
+
+	if os.Getenv("ENV") == "LIVE" {
+		prom := prometheus.NewPrometheus("annabingo", nil)
+		prom.Use(router)
+	}
+
 	router.Start(":8000")
 }
